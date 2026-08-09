@@ -300,7 +300,7 @@ function ServiceOverview({
   onEdit,
 }: {
   title: string;
-  date?: string;
+  date?: string | undefined;
   present: number;
   absent: number;
   pct: number;

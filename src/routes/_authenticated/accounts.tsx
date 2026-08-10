@@ -84,7 +84,6 @@ function AccountsPage() {
     <>
       <PageHeading
         title="Accounts"
-        subtitle="Create attendance-taker logins and reset passwords"
         action={<NewAccountDialog />}
       />
 
@@ -131,7 +130,6 @@ function AccountsPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Set a new password</DialogTitle>
-            <DialogDescription>Share the new password with the account holder.</DialogDescription>
           </DialogHeader>
           <form
             className="space-y-4"
@@ -195,9 +193,6 @@ function NewAccountDialog() {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>New account</DialogTitle>
-          <DialogDescription>
-            Set the username and password — there is no email sign-up.
-          </DialogDescription>
         </DialogHeader>
         <form
           className="space-y-4"
@@ -219,9 +214,6 @@ function NewAccountDialog() {
                 }`}
               >
                 {option === "admin" ? "Admin" : "Attendance taker"}
-                <span className="mt-0.5 block text-xs font-normal opacity-70">
-                  {option === "admin" ? "Full access" : "Attendance and reports"}
-                </span>
               </button>
             ))}
           </div>

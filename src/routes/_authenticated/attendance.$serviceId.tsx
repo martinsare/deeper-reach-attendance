@@ -106,9 +106,8 @@ function AttendancePage() {
       <ServiceOverview
         title={service.data?.name ?? "Service"}
         date={service.data?.date}
-        present={presentCount}
-        absent={total - presentCount}
-        pct={pct}
+        all={allMembers}
+        statusOf={statusOf}
         absentees={absentees}
         households={households}
         onEdit={() => setSubmitted(false)}
@@ -236,7 +235,7 @@ function AttendancePage() {
         })}
         {visible.length === 0 && (
           <li className="surface text-muted-foreground p-8 text-center text-sm">
-            No members match that search.
+            No matches.
           </li>
         )}
       </ul>
@@ -292,18 +291,16 @@ function IconToggle({
 function ServiceOverview({
   title,
   date,
-  present,
-  absent,
-  pct,
+  all,
+  statusOf,
   absentees,
   households,
   onEdit,
 }: {
   title: string;
   date?: string | undefined;
-  present: number;
-  absent: number;
-  pct: number;
+  all: Member[];
+  statusOf: (id: string) => Status;
   absentees: Member[];
   households: ReturnType<typeof buildHouseholds>;
   onEdit: () => void;
@@ -311,31 +308,61 @@ function ServiceOverview({
   const householdOf = (memberId: string) =>
     households.find((h) => h.members.some((m) => m.id === memberId))?.label ?? "—";
 
+  const summarise = (rows: Member[]) => {
+    const present = rows.filter((m) => statusOf(m.id) === "present").length;
+    return {
+      present,
+      absent: rows.length - present,
+      pct: rows.length ? Math.round((present / rows.length) * 100) : 0,
+    };
+  };
+  const everyone = summarise(all);
+  const workers = summarise(all.filter((m) => m.is_worker));
+  const hasWorkers = all.some((m) => m.is_worker);
+
   return (
     <>
       <PageHeading
         title={title}
-        subtitle={date ? `${format(parseISO(date), "EEEE d MMMM yyyy")} · submitted` : "Submitted"}
+        subtitle={date ? format(parseISO(date), "EEEE d MMMM yyyy") : undefined}
         action={
           <Button variant="secondary" size="lg" className="h-12" onClick={onEdit}>
-            Edit attendance
+            Edit
           </Button>
         }
       />
+      <h2 className="mb-2 text-sm font-semibold tracking-[0.16em] uppercase">Everyone</h2>
       <div className="mb-6 grid gap-3 sm:grid-cols-3">
-        <Stat label="Present" value={present} tone="success" />
-        <Stat label="Absent" value={absent} tone="destructive" />
-        <Stat label="Attendance" value={`${pct}%`} tone="primary" />
+        <Stat label="Present" value={everyone.present} tone="success" />
+        <Stat label="Absent" value={everyone.absent} tone="destructive" />
+        <Stat label="Attendance" value={`${everyone.pct}%`} tone="primary" />
       </div>
+      {hasWorkers && (
+        <>
+          <h2 className="mb-2 text-sm font-semibold tracking-[0.16em] uppercase">Workers</h2>
+          <div className="mb-6 grid gap-3 sm:grid-cols-3">
+            <Stat label="Present" value={workers.present} tone="success" />
+            <Stat label="Absent" value={workers.absent} tone="destructive" />
+            <Stat label="Attendance" value={`${workers.pct}%`} tone="primary" />
+          </div>
+        </>
+      )}
       <div className="surface p-5">
         <h2 className="text-lg font-semibold">Absentees</h2>
         {absentees.length === 0 ? (
-          <p className="text-muted-foreground mt-2 text-sm">Full house — everyone was present.</p>
+          <p className="text-muted-foreground mt-2 text-sm">None.</p>
         ) : (
           <ul className="divide-border mt-3 divide-y">
             {absentees.map((member) => (
               <li key={member.id} className="flex items-center justify-between gap-3 py-2.5">
-                <span className="text-sm font-medium">{member.name}</span>
+                <span className="flex items-center gap-2 text-sm font-medium">
+                  {member.name}
+                  {member.is_worker && (
+                    <span className="bg-primary/10 text-primary rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase">
+                      Worker
+                    </span>
+                  )}
+                </span>
                 <span className="text-muted-foreground text-xs">{householdOf(member.id)}</span>
               </li>
             ))}
@@ -344,7 +371,7 @@ function ServiceOverview({
       </div>
       <div className="mt-6">
         <Link to="/dashboard" className="text-primary text-sm font-semibold">
-          ← Back to services
+          ← Services
         </Link>
       </div>
     </>

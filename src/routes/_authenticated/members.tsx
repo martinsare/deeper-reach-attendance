@@ -21,7 +21,6 @@ import { Label } from "@/components/ui/label";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -47,38 +46,44 @@ function MembersPage() {
   const { isAdmin } = useSession();
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState<Record<string, boolean>>({});
+  const [workersOnly, setWorkersOnly] = useState(false);
 
   const households = useMemo(() => buildHouseholds(members), [members]);
   const query = search.trim().toLowerCase();
-  const visible = query
-    ? households.filter((h) => h.members.some((m) => m.name.toLowerCase().includes(query)))
-    : households;
+  const visible = households.filter(
+    (h) =>
+      (!query || h.members.some((m) => m.name.toLowerCase().includes(query))) &&
+      (!workersOnly || h.members.some((m) => m.is_worker)),
+  );
 
   return (
     <>
-      <PageHeading
-        title="Members"
-        subtitle={`${members.length} members across ${households.length} households`}
-        action={isAdmin ? <AddMemberDialog /> : undefined}
-      />
+      <PageHeading title="Members" action={isAdmin ? <AddMemberDialog /> : undefined} />
 
-      <div className="relative mb-4">
-        <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
-        <Input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search members"
-          className="h-12 pl-9"
-        />
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <div className="relative min-w-[12rem] flex-1">
+          <Search className="text-muted-foreground absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search"
+            className="h-12 pl-9"
+          />
+        </div>
+        <Button
+          variant={workersOnly ? "default" : "secondary"}
+          size="lg"
+          className="h-12"
+          onClick={() => setWorkersOnly((v) => !v)}
+        >
+          Workers
+        </Button>
       </div>
 
       {members.length === 0 ? (
         <div className="surface p-10 text-center">
-          <Users2 className="text-accent mx-auto h-6 w-6" />
+          <Users2 className="text-primary mx-auto h-6 w-6" />
           <p className="font-display mt-3 text-lg">No members yet</p>
-          <p className="text-muted-foreground mt-1 text-sm">
-            {isAdmin ? "Add your first member to begin." : "An admin needs to add members."}
-          </p>
         </div>
       ) : (
         <ul className="grid gap-3 sm:grid-cols-2">
@@ -92,7 +97,10 @@ function MembersPage() {
                     {initials(head.name)}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="truncate font-semibold">{head.name}</div>
+                    <div className="flex items-center gap-2">
+                      <span className="truncate font-semibold">{head.name}</span>
+                      {head.is_worker && <WorkerBadge />}
+                    </div>
                     <div className="text-muted-foreground mt-0.5 truncate text-xs">
                       {CATEGORY_LABELS[head.category]}
                       {head.contact ? ` · ${head.contact}` : ""}
@@ -118,7 +126,10 @@ function MembersPage() {
                   <ul className="divide-border bg-secondary/40 divide-y">
                     {household.dependents.map((dependent) => (
                       <li key={dependent.id} className="px-4 py-2.5 pl-[4.25rem]">
-                        <div className="text-sm font-medium">{dependent.name}</div>
+                        <div className="flex items-center gap-2 text-sm font-medium">
+                          {dependent.name}
+                          {dependent.is_worker && <WorkerBadge />}
+                        </div>
                         <div className="text-muted-foreground text-xs">
                           {CATEGORY_LABELS[dependent.category]}
                           {dependent.contact ? ` · ${dependent.contact}` : ""}
@@ -132,12 +143,20 @@ function MembersPage() {
           })}
           {visible.length === 0 && (
             <li className="surface text-muted-foreground p-8 text-center text-sm sm:col-span-2">
-              No members match that search.
+              No matches.
             </li>
           )}
         </ul>
       )}
     </>
+  );
+}
+
+function WorkerBadge() {
+  return (
+    <span className="bg-primary/10 text-primary shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase">
+      Worker
+    </span>
   );
 }
 
@@ -150,6 +169,7 @@ function AddMemberDialog() {
   const [category, setCategory] = useState<MemberCategory>("adult");
   const [guardianId, setGuardianId] = useState<string | null>(null);
   const [guardianSearch, setGuardianSearch] = useState("");
+  const [isWorker, setIsWorker] = useState(false);
 
   const adults = members.filter((m) => m.category === "adult");
   const guardianMatches = guardianSearch.trim()
@@ -163,6 +183,7 @@ function AddMemberDialog() {
         name: name.trim(),
         contact: contact.trim() || null,
         category,
+        is_worker: isWorker,
         guardian_id: category === "adult" ? null : guardianId,
       });
       if (error) throw new Error(error.message);
@@ -176,6 +197,7 @@ function AddMemberDialog() {
       setCategory("adult");
       setGuardianId(null);
       setGuardianSearch("");
+      setIsWorker(false);
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -190,9 +212,6 @@ function AddMemberDialog() {
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add member</DialogTitle>
-          <DialogDescription>
-            Dependents can be linked to an adult to form a household.
-          </DialogDescription>
         </DialogHeader>
         <form
           className="space-y-4"
@@ -217,7 +236,6 @@ function AddMemberDialog() {
               id="member-contact"
               value={contact}
               onChange={(e) => setContact(e.target.value)}
-              placeholder="Phone or email"
               className="h-12"
             />
           </div>
@@ -241,9 +259,28 @@ function AddMemberDialog() {
             </div>
           </div>
 
+          <button
+            type="button"
+            onClick={() => setIsWorker((v) => !v)}
+            className={`flex w-full items-center justify-between rounded-xl border px-4 py-3.5 text-sm transition-colors ${
+              isWorker
+                ? "border-primary bg-primary/8 text-primary font-semibold"
+                : "border-border text-muted-foreground"
+            }`}
+          >
+            Worker
+            <span
+              className={`grid h-6 w-11 items-center rounded-full px-0.5 transition-colors ${isWorker ? "bg-primary" : "bg-border"}`}
+            >
+              <span
+                className={`bg-card h-5 w-5 rounded-full transition-transform ${isWorker ? "translate-x-5" : ""}`}
+              />
+            </span>
+          </button>
+
           {category !== "adult" && (
             <div className="bg-secondary/50 space-y-2 rounded-xl p-3">
-              <Label htmlFor="guardian">Link to guardian (optional)</Label>
+              <Label htmlFor="guardian">Guardian (optional)</Label>
               {guardian ? (
                 <div className="flex items-center justify-between gap-2 text-sm">
                   <span className="font-medium">{guardian.name}</span>
@@ -262,7 +299,7 @@ function AddMemberDialog() {
                     id="guardian"
                     value={guardianSearch}
                     onChange={(e) => setGuardianSearch(e.target.value)}
-                    placeholder="Search adult members"
+                    placeholder="Search adults"
                     className="h-11"
                   />
                   <ul className="max-h-40 overflow-y-auto">
@@ -279,7 +316,7 @@ function AddMemberDialog() {
                     ))}
                     {guardianMatches.length === 0 && (
                       <li className="text-muted-foreground px-2 py-2 text-xs">
-                        No adult members match.
+                        No matches.
                       </li>
                     )}
                   </ul>

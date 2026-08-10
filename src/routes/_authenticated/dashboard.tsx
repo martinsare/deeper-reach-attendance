@@ -56,17 +56,13 @@ function ServicesPage() {
     <>
       <PageHeading
         title="Services"
-        subtitle={`${members.data?.length ?? 0} members on the roll · ${services.length} services recorded`}
         action={<NewServiceDialog />}
       />
 
       {services.length === 0 ? (
         <div className="surface p-10 text-center">
-          <Sparkles className="text-accent mx-auto h-6 w-6" />
+          <Sparkles className="text-primary mx-auto h-6 w-6" />
           <p className="font-display mt-3 text-lg">No services yet</p>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Create a service to start taking attendance.
-          </p>
         </div>
       ) : (
         <ul className="space-y-3">
@@ -176,7 +172,6 @@ function NewServiceDialog() {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>New service</DialogTitle>
-          <DialogDescription>Pick the type, name and date of the service.</DialogDescription>
         </DialogHeader>
         <form
           className="space-y-4"
@@ -198,9 +193,6 @@ function NewServiceDialog() {
                 }`}
               >
                 {option === "recurring" ? "Recurring" : "One-off"}
-                <span className="mt-0.5 block text-xs font-normal opacity-70">
-                  {option === "recurring" ? "Repeats on a schedule" : "Single event"}
-                </span>
               </button>
             ))}
           </div>
@@ -210,7 +202,6 @@ function NewServiceDialog() {
               id="service-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Sunday Recruitment Service"
               required
               className="h-12"
             />
@@ -230,12 +221,12 @@ function NewServiceDialog() {
             <div className="bg-secondary/60 space-y-3 rounded-xl p-3">
               <label className="flex items-center gap-3 text-sm">
                 <Checkbox checked={repeat} onCheckedChange={(v) => setRepeat(v === true)} />
-                Create weekly instances ahead of time
+                Repeat weekly
               </label>
               {repeat && (
                 <div className="flex items-center gap-3">
                   <Label htmlFor="weeks" className="text-xs">
-                    Number of weeks
+                    Weeks
                   </Label>
                   <Input
                     id="weeks"

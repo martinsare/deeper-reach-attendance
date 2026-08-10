@@ -51,8 +51,13 @@ function ReportsPage() {
   const [month, setMonth] = useState(() => new Date());
   const [view, setView] = useState<View>("service_type");
   const [focusId, setFocusId] = useState<string>("all");
+  const [scope, setScope] = useState<"everyone" | "workers">("everyone");
 
   const households = useMemo(() => buildHouseholds(members.data ?? []), [members.data]);
+  const workerIds = useMemo(
+    () => new Set((members.data ?? []).filter((m) => m.is_worker).map((m) => m.id)),
+    [members.data],
+  );
 
   const monthServices = useMemo(
     () =>
@@ -62,7 +67,10 @@ function ReportsPage() {
     [services, month],
   );
   const monthServiceIds = new Set(monthServices.map((s) => s.id));
-  const records = (attendance.data ?? []).filter((r) => monthServiceIds.has(r.service_id));
+  const records = (attendance.data ?? []).filter(
+    (r) =>
+      monthServiceIds.has(r.service_id) && (scope === "everyone" || workerIds.has(r.member_id)),
+  );
 
   const focusMemberIds = useMemo(() => {
     if (focusId === "all") return null;
@@ -110,6 +118,7 @@ function ReportsPage() {
   const concerns = useMemo(() => {
     const orderedServices = monthServices;
     return (members.data ?? [])
+      .filter((member) => scope === "everyone" || workerIds.has(member.id))
       .map((member) => {
         const rows = orderedServices
           .map((s) => records.find((r) => r.service_id === s.id && r.member_id === member.id))
@@ -134,7 +143,7 @@ function ReportsPage() {
       .filter((row) => row.total > 0 && (row.percent < 50 || row.streak >= 2))
       .sort((a, b) => b.streak - a.streak || a.percent - b.percent)
       .slice(0, 12);
-  }, [members.data, records, monthServices, households]);
+  }, [members.data, records, monthServices, households, scope, workerIds]);
 
   const options =
     view === "member"
@@ -147,7 +156,6 @@ function ReportsPage() {
     <>
       <PageHeading
         title="Monthly analysis"
-        subtitle={`${monthServices.length} services in ${format(month, "MMMM yyyy")} · ${overall}% overall attendance`}
         action={
           <div className="flex items-center gap-1">
             <Button
@@ -172,6 +180,29 @@ function ReportsPage() {
           </div>
         }
       />
+
+      <div className="mb-4 grid grid-cols-2 gap-2 sm:max-w-xs">
+        {(["everyone", "workers"] as const).map((option) => (
+          <button
+            key={option}
+            type="button"
+            onClick={() => setScope(option)}
+            className={`rounded-xl border px-3 py-3 text-sm capitalize transition-colors ${
+              scope === option
+                ? "border-primary bg-primary/8 text-primary font-semibold"
+                : "border-border text-muted-foreground"
+            }`}
+          >
+            {option}
+          </button>
+        ))}
+      </div>
+
+      <div className="mb-4 grid gap-3 sm:grid-cols-3">
+        <Metric label="Services" value={monthServices.length} />
+        <Metric label="Present" value={totalPresent} />
+        <Metric label="Attendance" value={`${overall}%`} />
+      </div>
 
       <Tabs
         value={view}
@@ -207,15 +238,12 @@ function ReportsPage() {
 
       {monthServices.length === 0 ? (
         <div className="surface text-muted-foreground p-10 text-center text-sm">
-          No services recorded in {format(month, "MMMM yyyy")}.
+          No services in {format(month, "MMMM yyyy")}.
         </div>
       ) : (
         <div className="grid gap-4 lg:grid-cols-3">
           <div className="surface p-5 lg:col-span-2">
             <h2 className="text-lg font-semibold">Attendance trend</h2>
-            <p className="text-muted-foreground mt-1 text-xs">
-              Percentage present at each service this month
-            </p>
             <div className="mt-4 h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={trend} margin={{ left: -20, right: 8, top: 8 }}>
@@ -245,7 +273,6 @@ function ReportsPage() {
 
           <div className="surface p-5">
             <h2 className="text-lg font-semibold">Recurring vs one-off</h2>
-            <p className="text-muted-foreground mt-1 text-xs">Average attendance by service type</p>
             <div className="mt-4 h-64">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={byType} margin={{ left: -20, right: 8, top: 8 }}>
@@ -269,15 +296,10 @@ function ReportsPage() {
 
           <div className="surface p-5 lg:col-span-3">
             <h2 className="flex items-center gap-2 text-lg font-semibold">
-              <AlertTriangle className="text-accent h-4 w-4" /> Needs follow-up
+              <AlertTriangle className="text-destructive h-4 w-4" /> Needs follow-up
             </h2>
-            <p className="text-muted-foreground mt-1 text-xs">
-              Under 50% attendance this month, or two or more consecutive absences
-            </p>
             {concerns.length === 0 ? (
-              <p className="text-muted-foreground mt-4 text-sm">
-                Nothing of concern this month — attendance is steady.
-              </p>
+              <p className="text-muted-foreground mt-4 text-sm">Nothing to flag.</p>
             ) : (
               <ul className="divide-border mt-3 divide-y">
                 {concerns.map((row) => (
@@ -302,6 +324,15 @@ function ReportsPage() {
         </div>
       )}
     </>
+  );
+}
+
+function Metric({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="surface p-4">
+      <div className="text-muted-foreground text-[11px] tracking-[0.16em] uppercase">{label}</div>
+      <div className="font-display text-primary mt-1 text-3xl font-semibold">{value}</div>
+    </div>
   );
 }
 

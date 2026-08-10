@@ -1,0 +1,1 @@
+ALTER TABLE public.members ADD COLUMN IF NOT EXISTS is_worker boolean NOT NULL DEFAULT false;

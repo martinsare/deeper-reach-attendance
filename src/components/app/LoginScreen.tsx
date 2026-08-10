@@ -65,43 +65,22 @@ export function LoginScreen() {
 
   return (
     <main className="min-h-screen bg-depth-gradient text-depth-foreground">
-      <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 py-10 lg:flex-row lg:items-center lg:gap-16 lg:py-16">
-        <div className="flex-1">
+      <div className="mx-auto flex min-h-screen w-full max-w-6xl flex-col justify-center px-6 py-10 lg:flex-row lg:items-center lg:gap-16 lg:py-16">
+        <div className="lg:flex-1">
           <BrandLockup />
-          <h1 className="mt-12 max-w-xl text-4xl leading-[1.05] font-semibold sm:text-5xl">
+          <h1 className="mt-8 max-w-xl text-3xl leading-[1.08] font-semibold sm:text-5xl lg:mt-12">
             Every name counted. Every household known.
           </h1>
-          <p className="mt-5 max-w-md text-base opacity-75">
-            Attendance for our services — taken in seconds during the meeting, and turned into
-            month-by-month insight for follow-up and care.
-          </p>
-          <div className="mt-10 hidden gap-8 sm:flex">
-            {[
-              ["Households", "Families grouped, not a flat list"],
-              ["One tap", "Mark a whole family at once"],
-              ["Monthly view", "Spot absentee streaks early"],
-            ].map(([title, copy]) => (
-              <div key={title} className="max-w-[10rem]">
-                <div className="text-sidebar-primary font-display text-lg">{title}</div>
-                <div className="mt-1 text-xs opacity-70">{copy}</div>
-              </div>
-            ))}
-          </div>
         </div>
 
-        <div className="mt-12 w-full lg:mt-0 lg:max-w-md">
+        <div className="mt-8 w-full lg:mt-0 lg:max-w-md">
           <div className="bg-card text-card-foreground shadow-lift rounded-3xl p-7 sm:p-8">
             <h2 className="text-2xl font-semibold">
               {needsSetup ? "Create the first admin" : "Sign in"}
             </h2>
-            <p className="text-muted-foreground mt-1.5 text-sm">
-              {needsSetup
-                ? "No accounts exist yet. Set up the church administrator to begin."
-                : "Use the username and password given to you by the church admin."}
-            </p>
 
             <form
-              className="mt-7 space-y-4"
+              className="mt-6 space-y-4"
               onSubmit={(event) => {
                 event.preventDefault();
                 if (needsSetup) createAdmin.mutate();
@@ -115,7 +94,6 @@ export function LoginScreen() {
                     id="name"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="Pastor's name"
                     required
                     className="h-12"
                   />
@@ -129,7 +107,6 @@ export function LoginScreen() {
                   autoCapitalize="none"
                   autoComplete="username"
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="e.g. admin"
                   required
                   className="h-12"
                 />
@@ -152,12 +129,6 @@ export function LoginScreen() {
                 {needsSetup ? "Create admin account" : "Sign in"}
               </Button>
             </form>
-
-            {!needsSetup && (
-              <p className="text-muted-foreground mt-5 text-xs">
-                Forgotten your password? Ask a church admin to set a new one for you.
-              </p>
-            )}
           </div>
         </div>
       </div>

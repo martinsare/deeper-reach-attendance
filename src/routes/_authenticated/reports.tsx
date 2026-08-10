@@ -118,6 +118,7 @@ function ReportsPage() {
   const concerns = useMemo(() => {
     const orderedServices = monthServices;
     return (members.data ?? [])
+      .filter((member) => scope === "everyone" || workerIds.has(member.id))
       .map((member) => {
         const rows = orderedServices
           .map((s) => records.find((r) => r.service_id === s.id && r.member_id === member.id))
@@ -142,7 +143,7 @@ function ReportsPage() {
       .filter((row) => row.total > 0 && (row.percent < 50 || row.streak >= 2))
       .sort((a, b) => b.streak - a.streak || a.percent - b.percent)
       .slice(0, 12);
-  }, [members.data, records, monthServices, households]);
+  }, [members.data, records, monthServices, households, scope, workerIds]);
 
   const options =
     view === "member"

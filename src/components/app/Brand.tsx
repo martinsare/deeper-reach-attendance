@@ -7,22 +7,13 @@ import { cn } from "@/lib/utils";
 export function BrandMark({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 40 40" className={cn("h-9 w-9", className)} aria-hidden="true">
-      <circle cx="20" cy="20" r="19" fill="none" stroke="currentColor" strokeOpacity="0.22" />
+      <rect x="1" y="1" width="38" height="38" rx="11" fill="currentColor" fillOpacity="0.12" />
       <path
-        d="M9 14h22M11.5 20h17M14 26h12"
+        d="M8 13h24M10.5 20h19M14 27h12M18 33h4"
         stroke="currentColor"
-        strokeOpacity="0.45"
-        strokeWidth="1.6"
+        strokeWidth="2.4"
         strokeLinecap="round"
       />
-      <path
-        d="M20 7v26M20 12c-3.4 1.6-4.6 4.2-4.6 7M20 12c3.4 1.6 4.6 4.2 4.6 7"
-        stroke="currentColor"
-        strokeWidth="2.1"
-        strokeLinecap="round"
-        fill="none"
-      />
-      <circle cx="20" cy="33" r="2.4" fill="currentColor" />
     </svg>
   );
 }

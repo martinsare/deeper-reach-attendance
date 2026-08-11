@@ -100,6 +100,7 @@ function MembersPage() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="truncate font-semibold">{head.name}</span>
+                      {head.gender && <GenderBadge gender={head.gender} />}
                       {head.is_worker && <WorkerBadge />}
                     </div>
                     <div className="text-muted-foreground mt-0.5 truncate text-xs">
@@ -129,6 +130,7 @@ function MembersPage() {
                       <li key={dependent.id} className="px-4 py-2.5 pl-[4.25rem]">
                         <div className="flex items-center gap-2 text-sm font-medium">
                           {dependent.name}
+                          {dependent.gender && <GenderBadge gender={dependent.gender} />}
                           {dependent.is_worker && <WorkerBadge />}
                         </div>
                         <div className="text-muted-foreground text-xs">
@@ -157,6 +159,14 @@ function WorkerBadge() {
   return (
     <span className="bg-primary/10 text-primary shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase">
       Worker
+    </span>
+  );
+}
+
+function GenderBadge({ gender }: { gender: "male" | "female" }) {
+  return (
+    <span className="bg-secondary text-muted-foreground shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wide uppercase">
+      {gender === "male" ? "M" : "F"}
     </span>
   );
 }

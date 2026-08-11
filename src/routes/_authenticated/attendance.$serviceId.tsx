@@ -324,6 +324,18 @@ function ServiceOverview({
   const everyone = summarise(all);
   const workers = summarise(all.filter((m) => m.is_worker));
   const hasWorkers = all.some((m) => m.is_worker);
+  const copySummary = async () => {
+    const text = buildAttendanceSummary({
+      date,
+      present: all.filter((m) => statusOf(m.id) === "present"),
+    });
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("Summary copied");
+    } catch {
+      toast.error("Copy failed");
+    }
+  };
 
   return (
     <>
@@ -331,9 +343,14 @@ function ServiceOverview({
         title={title}
         subtitle={date ? format(parseISO(date), "EEEE d MMMM yyyy") : undefined}
         action={
-          <Button variant="secondary" size="lg" className="h-12" onClick={onEdit}>
-            Edit
-          </Button>
+          <div className="flex gap-2">
+            <Button size="lg" className="h-12" onClick={copySummary}>
+              <Copy className="mr-2 h-4 w-4" /> Copy summary
+            </Button>
+            <Button variant="secondary" size="lg" className="h-12" onClick={onEdit}>
+              Edit
+            </Button>
+          </div>
         }
       />
       <h2 className="mb-2 text-sm font-semibold tracking-[0.16em] uppercase">Everyone</h2>

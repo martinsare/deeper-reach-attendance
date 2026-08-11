@@ -14,6 +14,7 @@ import {
   membersQuery,
   type MemberCategory,
 } from "@/lib/data";
+import type { Database } from "@/integrations/supabase/types";
 import { PageHeading } from "@/components/app/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -167,6 +168,7 @@ function AddMemberDialog() {
   const [name, setName] = useState("");
   const [contact, setContact] = useState("");
   const [category, setCategory] = useState<MemberCategory>("adult");
+  const [gender, setGender] = useState<Database["public"]["Enums"]["member_gender"] | null>(null);
   const [guardianId, setGuardianId] = useState<string | null>(null);
   const [guardianSearch, setGuardianSearch] = useState("");
   const [isWorker, setIsWorker] = useState(false);
@@ -183,6 +185,7 @@ function AddMemberDialog() {
         name: name.trim(),
         contact: contact.trim() || null,
         category,
+        gender,
         is_worker: isWorker,
         guardian_id: category === "adult" ? null : guardianId,
       });
@@ -195,6 +198,7 @@ function AddMemberDialog() {
       setName("");
       setContact("");
       setCategory("adult");
+      setGender(null);
       setGuardianId(null);
       setGuardianSearch("");
       setIsWorker(false);
@@ -254,6 +258,25 @@ function AddMemberDialog() {
                   }`}
                 >
                   {CATEGORY_LABELS[option]}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>Gender</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {(["male", "female"] as const).map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => setGender(option)}
+                  className={`rounded-xl border px-3 py-3 text-sm transition-colors ${
+                    gender === option
+                      ? "border-primary bg-primary/8 text-primary font-semibold"
+                      : "border-border text-muted-foreground"
+                  }`}
+                >
+                  {option === "male" ? "Male" : "Female"}
                 </button>
               ))}
             </div>

@@ -40,6 +40,11 @@ function ServicesPage() {
   const { data: services } = useSuspenseQuery(servicesQuery);
   const members = useQuery(membersQuery);
   const attendance = useQuery(attendanceQuery);
+  const [page, setPage] = useState(1);
+  const perPage = 10;
+  const pageCount = Math.max(1, Math.ceil(services.length / perPage));
+  const current = Math.min(page, pageCount);
+  const paged = services.slice((current - 1) * perPage, current * perPage);
 
   const counts = useMemo(() => {
     const map = new Map<string, { present: number; total: number }>();
@@ -66,7 +71,7 @@ function ServicesPage() {
         </div>
       ) : (
         <ul className="space-y-3">
-          {services.map((service) => {
+          {paged.map((service) => {
             const count = counts.get(service.id);
             const pct = count?.total ? Math.round((count.present / count.total) * 100) : null;
             return (
@@ -118,6 +123,32 @@ function ServicesPage() {
             );
           })}
         </ul>
+      )}
+
+      {pageCount > 1 && (
+        <div className="mt-5 flex items-center justify-center gap-3">
+          <Button
+            variant="secondary"
+            size="lg"
+            className="h-11"
+            disabled={current === 1}
+            onClick={() => setPage(current - 1)}
+          >
+            Previous
+          </Button>
+          <span className="text-muted-foreground text-sm">
+            {current} / {pageCount}
+          </span>
+          <Button
+            variant="secondary"
+            size="lg"
+            className="h-11"
+            disabled={current === pageCount}
+            onClick={() => setPage(current + 1)}
+          >
+            Next
+          </Button>
+        </div>
       )}
     </>
   );

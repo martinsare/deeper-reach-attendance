@@ -64,6 +64,7 @@ export type Database = {
           category: Database["public"]["Enums"]["member_category"]
           contact: string | null
           created_at: string
+          gender: Database["public"]["Enums"]["member_gender"] | null
           guardian_id: string | null
           id: string
           is_worker: boolean
@@ -74,6 +75,7 @@ export type Database = {
           category?: Database["public"]["Enums"]["member_category"]
           contact?: string | null
           created_at?: string
+          gender?: Database["public"]["Enums"]["member_gender"] | null
           guardian_id?: string | null
           id?: string
           is_worker?: boolean
@@ -84,6 +86,7 @@ export type Database = {
           category?: Database["public"]["Enums"]["member_category"]
           contact?: string | null
           created_at?: string
+          gender?: Database["public"]["Enums"]["member_gender"] | null
           guardian_id?: string | null
           id?: string
           is_worker?: boolean
@@ -192,6 +195,7 @@ export type Database = {
       app_role: "admin" | "attendance_taker"
       attendance_status: "present" | "absent"
       member_category: "adult" | "young_adult" | "youth" | "child"
+      member_gender: "male" | "female"
       service_type: "recurring" | "one_off"
     }
     CompositeTypes: {
@@ -323,6 +327,7 @@ export const Constants = {
       app_role: ["admin", "attendance_taker"],
       attendance_status: ["present", "absent"],
       member_category: ["adult", "young_adult", "youth", "child"],
+      member_gender: ["male", "female"],
       service_type: ["recurring", "one_off"],
     },
   },

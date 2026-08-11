@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format, parseISO } from "date-fns";
-import { Check, ChevronDown, X, ArrowLeft, Search } from "lucide-react";
+import { Check, ChevronDown, X, ArrowLeft, Search, Copy } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PageHeading } from "@/components/app/AppShell";
+import { buildAttendanceSummary } from "@/lib/summary";
 
 export const Route = createFileRoute("/_authenticated/attendance/$serviceId")({
   head: () => ({
@@ -164,7 +165,9 @@ function AttendancePage() {
           const presentInHouse = household.members.filter(
             (m) => statusOf(m.id) === "present",
           ).length;
-          const expanded = open[household.id] ?? household.dependents.length === 0;
+          const single = household.dependents.length === 0;
+          const expanded = single ? false : (open[household.id] ?? false);
+          const head = household.head!;
           return (
             <li key={household.id} className="surface overflow-hidden">
               <div className="flex items-center gap-3 p-3 sm:p-4">
@@ -172,18 +175,20 @@ function AttendancePage() {
                   type="button"
                   onClick={() => setOpen((prev) => ({ ...prev, [household.id]: !expanded }))}
                   className="min-w-0 flex-1 text-left"
-                  disabled={household.dependents.length === 0}
+                  disabled={single}
                 >
                   <div className="flex items-center gap-2 font-semibold">
                     <span className="truncate">{household.label}</span>
-                    {household.dependents.length > 0 && (
+                    {!single && (
                       <ChevronDown
                         className={`h-4 w-4 shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`}
                       />
                     )}
                   </div>
                   <div className="text-muted-foreground mt-0.5 text-xs">
-                    {presentInHouse}/{household.members.length} present
+                    {single
+                      ? CATEGORY_LABELS[head.category]
+                      : `${presentInHouse}/${household.members.length} present`}
                   </div>
                 </button>
                 <div className="flex shrink-0 gap-2">
@@ -202,7 +207,7 @@ function AttendancePage() {
                 </div>
               </div>
 
-              {expanded && (
+              {expanded && !single && (
                 <ul className="border-border divide-border divide-y border-t">
                   {household.members.map((member) => (
                     <li key={member.id} className="flex items-center gap-3 px-3 py-2.5 sm:px-4">
@@ -319,6 +324,18 @@ function ServiceOverview({
   const everyone = summarise(all);
   const workers = summarise(all.filter((m) => m.is_worker));
   const hasWorkers = all.some((m) => m.is_worker);
+  const copySummary = async () => {
+    const text = buildAttendanceSummary({
+      date,
+      present: all.filter((m) => statusOf(m.id) === "present"),
+    });
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success("Summary copied");
+    } catch {
+      toast.error("Copy failed");
+    }
+  };
 
   return (
     <>
@@ -326,9 +343,14 @@ function ServiceOverview({
         title={title}
         subtitle={date ? format(parseISO(date), "EEEE d MMMM yyyy") : undefined}
         action={
-          <Button variant="secondary" size="lg" className="h-12" onClick={onEdit}>
-            Edit
-          </Button>
+          <div className="flex gap-2">
+            <Button size="lg" className="h-12" onClick={copySummary}>
+              <Copy className="mr-2 h-4 w-4" /> Copy summary
+            </Button>
+            <Button variant="secondary" size="lg" className="h-12" onClick={onEdit}>
+              Edit
+            </Button>
+          </div>
         }
       />
       <h2 className="mb-2 text-sm font-semibold tracking-[0.16em] uppercase">Everyone</h2>

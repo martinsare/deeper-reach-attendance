@@ -106,6 +106,10 @@ function AttendancePage() {
   const alreadyRecorded = (existing.data ?? []).length > 0;
   const locked = (submitted || alreadyRecorded) && !editing;
 
+  if (existing.isPending || members.isPending) {
+    return <p className="text-muted-foreground py-16 text-center text-sm">Loading…</p>;
+  }
+
   if (locked) {
     return (
       <ServiceOverview
@@ -267,7 +271,7 @@ function AttendancePage() {
             onClick={() => submit.mutate()}
             disabled={submit.isPending || total === 0}
           >
-            Submit attendance
+            {editing ? "Resubmit attendance" : "Submit attendance"}
           </Button>
         </div>
       </div>

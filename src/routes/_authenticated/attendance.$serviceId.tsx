@@ -40,6 +40,7 @@ function AttendancePage() {
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [submitted, setSubmitted] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   const service = useQuery({
     queryKey: ["service", serviceId],
@@ -102,7 +103,10 @@ function AttendancePage() {
 
   const absentees = allMembers.filter((m) => statusOf(m.id) === "absent");
 
-  if (submitted) {
+  const alreadyRecorded = (existing.data ?? []).length > 0;
+  const locked = (submitted || alreadyRecorded) && !editing;
+
+  if (locked) {
     return (
       <ServiceOverview
         title={service.data?.name ?? "Service"}
@@ -111,7 +115,10 @@ function AttendancePage() {
         statusOf={statusOf}
         absentees={absentees}
         households={households}
-        onEdit={() => setSubmitted(false)}
+        onEdit={() => {
+          setSubmitted(false);
+          setEditing(true);
+        }}
       />
     );
   }

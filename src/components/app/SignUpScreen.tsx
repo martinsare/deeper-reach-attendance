@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
-import { Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -16,6 +16,7 @@ export function SignUpScreen() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
@@ -27,22 +28,26 @@ export function SignUpScreen() {
 
   const signUp = useMutation({
     mutationFn: async () => {
-      const { data, error } = await supabase.auth.signUp({
-        email: normalizeEmail(email),
+      const normalized = normalizeEmail(email);
+
+      const { error: signUpError } = await supabase.auth.signUp({
+        email: normalized,
         password,
         options: {
           data: { name: name.trim() },
         },
       });
-      if (error) throw new Error(error.message);
-      return data.session;
+
+      if (signUpError) throw new Error(signUpError.message);
+
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: normalized,
+        password,
+      });
+
+      if (signInError) throw new Error(signInError.message);
     },
-    onSuccess: (session) => {
-      if (!session) {
-        toast.success("Account created. Sign in to continue.");
-        navigate({ to: "/auth", replace: true });
-        return;
-      }
+    onSuccess: () => {
       toast.success("Account created");
       navigate({ to: "/dashboard", replace: true });
     },
@@ -96,16 +101,26 @@ export function SignUpScreen() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  autoComplete="new-password"
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  minLength={6}
-                  className="h-12"
-                />
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    autoComplete="new-password"
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    minLength={6}
+                    className="h-12 pr-12"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((value) => !value)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    className="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
               <Button type="submit" size="lg" className="h-12 w-full text-base" disabled={pending}>
                 {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

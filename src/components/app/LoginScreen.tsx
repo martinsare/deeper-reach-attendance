@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { normalizeEmail } from "@/lib/email";
@@ -16,13 +16,29 @@ export function LoginScreen() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate({ to: "/dashboard", replace: true });
-      else setChecking(false);
-    });
+    let active = true;
+
+    const checkSession = async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (!active) return;
+        if (data.session) navigate({ to: "/dashboard", replace: true });
+      } catch (error) {
+        console.error("Failed to read Supabase session", error);
+      } finally {
+        if (active) setChecking(false);
+      }
+    };
+
+    void checkSession();
+
+    return () => {
+      active = false;
+    };
   }, [navigate]);
 
   const signIn = useMutation({
@@ -74,16 +90,26 @@ export function LoginScreen() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  value={password}
-                  autoComplete="current-password"
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  minLength={6}
-                  className="h-12"
-                />
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    autoComplete="current-password"
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    minLength={6}
+                    className="h-12 pr-12"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((value) => !value)}
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                    className="text-muted-foreground hover:text-foreground absolute top-1/2 right-3 -translate-y-1/2"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
               </div>
               <Button type="submit" size="lg" className="h-12 w-full text-base" disabled={pending}>
                 {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

@@ -1,3 +1,6 @@
+import { createClient } from "@supabase/supabase-js";
+
+import { normalizeEmail } from "@/lib/email";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -24,18 +27,60 @@ export async function fetchAccounts(): Promise<AccountRow[]> {
 }
 
 export async function setAccountRole(userId: string, role: AccountRole) {
-  const { data: existing, error: readError } = await supabase
-    .from("user_roles")
-    .select("id")
-    .eq("user_id", userId)
-    .maybeSingle();
+  const { error: deleteError } = await supabase.from("user_roles").delete().eq("user_id", userId);
+  if (deleteError) throw new Error(deleteError.message);
 
-  if (readError) throw new Error(readError.message);
+  const { error } = await supabase.from("user_roles").insert({ user_id: userId, role });
+  if (error) throw new Error(error.message);
+}
 
-  const mutation = existing
-    ? supabase.from("user_roles").update({ role }).eq("user_id", userId)
-    : supabase.from("user_roles").insert({ user_id: userId, role });
+type AccountInput = {
+  name: string;
+  email: string;
+  password: string;
+  role: AccountRole;
+};
 
-  const { error } = await mutation;
+function createEphemeralAuthClient() {
+  const url = import.meta.env["VITE_SUPABASE_URL"];
+  const key = import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"];
+
+  if (!url || !key) throw new Error("Supabase is not configured.");
+
+  return createClient<Database>(url, key, {
+    auth: {
+      storage: undefined,
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
+}
+
+export async function createAccount({ name, email, password, role }: AccountInput) {
+  const authClient = createEphemeralAuthClient();
+  const normalizedEmail = normalizeEmail(email);
+
+  const { data, error } = await authClient.auth.signUp({
+    email: normalizedEmail,
+    password,
+    options: {
+      data: { name: name.trim() },
+    },
+  });
+
+  if (error) throw new Error(error.message);
+  if (!data.user) throw new Error("Unable to create account.");
+
+  if (role === "admin") {
+    await setAccountRole(data.user.id, "admin");
+  }
+
+  return data.user.id;
+}
+
+export async function sendPasswordReset(email: string) {
+  const { error } = await supabase.auth.resetPasswordForEmail(normalizeEmail(email), {
+    redirectTo: `${window.location.origin}/auth`,
+  });
   if (error) throw new Error(error.message);
 }

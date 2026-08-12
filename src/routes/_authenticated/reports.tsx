@@ -132,7 +132,7 @@ function ReportsPage() {
         return {
           id: member.id,
           name: member.name,
-          household: household?.label ?? "—",
+          household: household?.label ?? "Unknown",
           total,
           percent: total ? Math.round((present / total) * 100) : 0,
           streak,

@@ -110,7 +110,7 @@ function AttendancePage() {
   const locked = (submitted || alreadyRecorded) && !editing;
 
   if (existing.isPending || members.isPending) {
-    return <p className="text-muted-foreground py-16 text-center text-sm">Loading…</p>;
+    return <p className="text-muted-foreground py-16 text-center text-sm">Loading...</p>;
   }
 
   if (locked) {
@@ -333,7 +333,7 @@ function ServiceOverview({
   onEdit: () => void;
 }) {
   const householdOf = (memberId: string) =>
-    households.find((h) => h.members.some((m) => m.id === memberId))?.label ?? "—";
+    households.find((h) => h.members.some((m) => m.id === memberId))?.label ?? "Unknown";
 
   const summarise = (rows: Member[]) => {
     const present = rows.filter((m) => statusOf(m.id) === "present").length;
@@ -415,7 +415,7 @@ function ServiceOverview({
       </div>
       <div className="mt-6">
         <Link to="/dashboard" className="text-primary text-sm font-semibold">
-          ← Services
+          Back to services
         </Link>
       </div>
     </>

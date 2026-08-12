@@ -1,12 +1,28 @@
+import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { KeyRound, UserCog } from "lucide-react";
+import { KeyRound, Mail, UserCog, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 
 import { useSession } from "@/hooks/use-session";
-import { fetchAccounts, setAccountRole, type AccountRole } from "@/lib/accounts.functions";
+import {
+  createAccount,
+  fetchAccounts,
+  sendPasswordReset,
+  setAccountRole,
+  type AccountRole,
+} from "@/lib/accounts.functions";
 import { PageHeading } from "@/components/app/AppShell";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export const Route = createFileRoute("/_authenticated/accounts")({
   head: () => ({
@@ -40,6 +56,12 @@ function AccountsPage() {
     onError: (error: Error) => toast.error(error.message),
   });
 
+  const reset = useMutation({
+    mutationFn: sendPasswordReset,
+    onSuccess: () => toast.success("Reset email sent"),
+    onError: (error: Error) => toast.error(error.message),
+  });
+
   if (loading) return null;
   if (!isAdmin) {
     return (
@@ -51,7 +73,15 @@ function AccountsPage() {
 
   return (
     <>
-      <PageHeading title="Accounts" subtitle="Manage roles for registered users." />
+      <PageHeading
+        title="Accounts"
+        subtitle="Manage roles for registered users."
+        action={
+          <CreateAccountDialog
+            onCreated={() => queryClient.invalidateQueries({ queryKey: ["accounts"] })}
+          />
+        }
+      />
 
       <ul className="space-y-3">
         {(accounts.data ?? []).map((account) => (
@@ -83,6 +113,15 @@ function AccountsPage() {
             >
               Attendance taker
             </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-10"
+              disabled={reset.isPending}
+              onClick={() => reset.mutate(account.email)}
+            >
+              <Mail className="mr-1.5 h-3.5 w-3.5" /> Reset password
+            </Button>
           </li>
         ))}
         {accounts.data?.length === 0 && (
@@ -92,5 +131,104 @@ function AccountsPage() {
         )}
       </ul>
     </>
+  );
+}
+
+function CreateAccountDialog({ onCreated }: { onCreated: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [role, setRole] = useState<AccountRole>("attendance_taker");
+  const create = useMutation({
+    mutationFn: () => createAccount({ name, email, password, role }),
+    onSuccess: () => {
+      toast.success("Account created");
+      onCreated();
+      setOpen(false);
+      setName("");
+      setEmail("");
+      setPassword("");
+      setRole("attendance_taker");
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button size="lg" className="h-12">
+          <UserPlus className="mr-2 h-4 w-4" /> New account
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>New account</DialogTitle>
+        </DialogHeader>
+        <form
+          className="space-y-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            create.mutate();
+          }}
+        >
+          <div className="grid grid-cols-2 gap-2">
+            {(["attendance_taker", "admin"] as const).map((option) => (
+              <button
+                key={option}
+                type="button"
+                onClick={() => setRole(option)}
+                className={`rounded-xl border p-3 text-left text-sm transition-colors ${
+                  role === option
+                    ? "border-primary bg-primary/8 text-primary font-semibold"
+                    : "border-border text-muted-foreground"
+                }`}
+              >
+                {option === "admin" ? "Admin" : "Attendance taker"}
+              </button>
+            ))}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="account-name">Full name</Label>
+            <Input
+              id="account-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              className="h-12"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="account-email">Email</Label>
+            <Input
+              id="account-email"
+              type="email"
+              value={email}
+              autoCapitalize="none"
+              autoComplete="email"
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="h-12"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="account-password">Password</Label>
+            <Input
+              id="account-password"
+              type="password"
+              value={password}
+              autoComplete="new-password"
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              minLength={6}
+              className="h-12"
+            />
+          </div>
+          <Button type="submit" size="lg" className="h-12 w-full" disabled={create.isPending}>
+            Create account
+          </Button>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }

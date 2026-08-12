@@ -112,9 +112,7 @@ function MembersPage() {
                     {household.dependents.length > 0 && (
                       <button
                         type="button"
-                        onClick={() =>
-                          setOpen((prev) => ({ ...prev, [household.id]: !expanded }))
-                        }
+                        onClick={() => setOpen((prev) => ({ ...prev, [household.id]: !expanded }))}
                         className="text-primary mt-2 inline-flex items-center gap-1 text-xs font-semibold"
                       >
                         {household.dependents.length} dependent
@@ -428,11 +426,7 @@ function AddMemberDialog() {
           <GenderPicker gender={gender} setGender={setGender} />
           <WorkerToggle value={isWorker} onToggle={() => setIsWorker((v) => !v)} />
           {category !== "adult" && (
-            <GuardianPicker
-              adults={adults}
-              guardianId={guardianId}
-              setGuardianId={setGuardianId}
-            />
+            <GuardianPicker adults={adults} guardianId={guardianId} setGuardianId={setGuardianId} />
           )}
           <Button type="submit" size="lg" className="h-12 w-full" disabled={create.isPending}>
             Add member
@@ -443,13 +437,7 @@ function AddMemberDialog() {
   );
 }
 
-function EditMemberDialog({
-  member,
-  onClose,
-}: {
-  member: Member | null;
-  onClose: () => void;
-}) {
+function EditMemberDialog({ member, onClose }: { member: Member | null; onClose: () => void }) {
   const queryClient = useQueryClient();
   const { data: members } = useSuspenseQuery(membersQuery);
   const [name, setName] = useState("");

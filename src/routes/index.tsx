@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { LoginScreen } from "@/components/app/LoginScreen";
 
 export const Route = createFileRoute("/")({
+  ssr: false,
   head: () => ({
     meta: [
       { title: "Attendance Sign In | Deeper Life Bible Church, Pontypridd" },

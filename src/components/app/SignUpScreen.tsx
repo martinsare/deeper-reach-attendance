@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useMutation } from "@tanstack/react-query";
-import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
 import { normalizeEmail } from "@/lib/email";
@@ -11,9 +11,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { BrandLockup } from "./Brand";
 
-export function LoginScreen() {
+export function SignUpScreen() {
   const navigate = useNavigate();
-
+  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [checking, setChecking] = useState(true);
@@ -25,18 +25,31 @@ export function LoginScreen() {
     });
   }, [navigate]);
 
-  const signIn = useMutation({
+  const signUp = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signUp({
         email: normalizeEmail(email),
         password,
+        options: {
+          data: { name: name.trim() },
+        },
       });
-      if (error) throw new Error("Wrong email or password.");
+      if (error) throw new Error(error.message);
+      return data.session;
     },
-    onSuccess: () => navigate({ to: "/dashboard", replace: true }),
+    onSuccess: (session) => {
+      if (!session) {
+        toast.success("Account created. Sign in to continue.");
+        navigate({ to: "/auth", replace: true });
+        return;
+      }
+      toast.success("Account created");
+      navigate({ to: "/dashboard", replace: true });
+    },
     onError: (error: Error) => toast.error(error.message),
   });
-  const pending = signIn.isPending || checking;
+
+  const pending = signUp.isPending || checking;
 
   return (
     <main className="min-h-screen bg-depth-gradient text-depth-foreground">
@@ -50,15 +63,24 @@ export function LoginScreen() {
 
         <div className="mt-8 w-full lg:mt-0 lg:max-w-md">
           <div className="bg-card text-card-foreground shadow-lift rounded-3xl p-7 sm:p-8">
-            <h2 className="text-2xl font-semibold">Sign in</h2>
-
+            <h2 className="text-2xl font-semibold">Create account</h2>
             <form
               className="mt-6 space-y-4"
               onSubmit={(event) => {
                 event.preventDefault();
-                signIn.mutate();
+                signUp.mutate();
               }}
             >
+              <div className="space-y-2">
+                <Label htmlFor="name">Full name</Label>
+                <Input
+                  id="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  className="h-12"
+                />
+              </div>
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
                 <Input
@@ -78,7 +100,7 @@ export function LoginScreen() {
                   id="password"
                   type="password"
                   value={password}
-                  autoComplete="current-password"
+                  autoComplete="new-password"
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   minLength={6}
@@ -87,13 +109,13 @@ export function LoginScreen() {
               </div>
               <Button type="submit" size="lg" className="h-12 w-full text-base" disabled={pending}>
                 {pending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Sign in
+                Create account
               </Button>
             </form>
             <p className="mt-4 text-center text-sm text-muted-foreground">
-              Need an account?{" "}
-              <Link to="/signup" className="text-primary font-medium hover:underline">
-                Sign up
+              Already have an account?{" "}
+              <Link to="/auth" className="text-primary font-medium hover:underline">
+                Sign in
               </Link>
             </p>
           </div>

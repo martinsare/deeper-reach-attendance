@@ -59,10 +59,7 @@ function ServicesPage() {
 
   return (
     <>
-      <PageHeading
-        title="Services"
-        action={<NewServiceDialog />}
-      />
+      <PageHeading title="Services" action={<NewServiceDialog />} />
 
       {services.length === 0 ? (
         <div className="surface p-10 text-center">
@@ -110,7 +107,9 @@ function ServicesPage() {
                       </span>
                     ) : (
                       <>
-                        <div className="font-display text-primary text-xl font-semibold">{pct}%</div>
+                        <div className="font-display text-primary text-xl font-semibold">
+                          {pct}%
+                        </div>
                         <div className="text-muted-foreground text-xs">
                           {count!.present}/{count!.total} present
                         </div>

@@ -25,7 +25,10 @@ export const Route = createFileRoute("/_authenticated/attendance/$serviceId")({
       { title: "Take Attendance | Deeper Life Attendance" },
       { name: "description", content: "Mark households present or absent for this service." },
       { property: "og:title", content: "Take Attendance | Deeper Life Attendance" },
-      { property: "og:description", content: "Mark households present or absent for this service." },
+      {
+        property: "og:description",
+        content: "Mark households present or absent for this service.",
+      },
     ],
   }),
   component: AttendancePage,
@@ -156,7 +159,12 @@ function AttendancePage() {
           variant="secondary"
           size="lg"
           className="h-12"
-          onClick={() => setMany(allMembers.map((m) => m.id), "present")}
+          onClick={() =>
+            setMany(
+              allMembers.map((m) => m.id),
+              "present",
+            )
+          }
         >
           All present
         </Button>
@@ -164,7 +172,12 @@ function AttendancePage() {
           variant="secondary"
           size="lg"
           className="h-12"
-          onClick={() => setMany(allMembers.map((m) => m.id), "absent")}
+          onClick={() =>
+            setMany(
+              allMembers.map((m) => m.id),
+              "absent",
+            )
+          }
         >
           Clear
         </Button>
@@ -250,9 +263,7 @@ function AttendancePage() {
           );
         })}
         {visible.length === 0 && (
-          <li className="surface text-muted-foreground p-8 text-center text-sm">
-            No matches.
-          </li>
+          <li className="surface text-muted-foreground p-8 text-center text-sm">No matches.</li>
         )}
       </ul>
 
@@ -421,7 +432,11 @@ function Stat({
   tone: "success" | "destructive" | "primary";
 }) {
   const color =
-    tone === "success" ? "text-success" : tone === "destructive" ? "text-destructive" : "text-primary";
+    tone === "success"
+      ? "text-success"
+      : tone === "destructive"
+        ? "text-destructive"
+        : "text-primary";
   return (
     <div className="surface p-5">
       <div className="text-muted-foreground text-xs tracking-[0.18em] uppercase">{label}</div>

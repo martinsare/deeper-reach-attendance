@@ -82,9 +82,7 @@ function ReportsPage() {
     return null;
   }, [focusId, view, households]);
 
-  const scoped = focusMemberIds
-    ? records.filter((r) => focusMemberIds.has(r.member_id))
-    : records;
+  const scoped = focusMemberIds ? records.filter((r) => focusMemberIds.has(r.member_id)) : records;
 
   const trend = monthServices.map((service) => {
     const rows = scoped.filter((r) => r.service_id === service.id);

@@ -8,7 +8,7 @@ export type SessionState = {
   session: Session | null;
   userId: string | null;
   name: string;
-  username: string;
+  email: string;
   role: AppRole | null;
   isAdmin: boolean;
 };
@@ -16,7 +16,7 @@ export type SessionState = {
 export function useSession(): SessionState {
   const [session, setSession] = useState<Session | null>(null);
   const [role, setRole] = useState<AppRole | null>(null);
-  const [profile, setProfile] = useState<{ name: string; username: string } | null>(null);
+  const [profile, setProfile] = useState<{ name: string; email: string } | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -33,7 +33,7 @@ export function useSession(): SessionState {
       }
       const [{ data: roleRow }, { data: profileRow }] = await Promise.all([
         supabase.from("user_roles").select("role").eq("user_id", next.user.id).maybeSingle(),
-        supabase.from("profiles").select("name, username").eq("id", next.user.id).maybeSingle(),
+        supabase.from("profiles").select("name, email").eq("id", next.user.id).maybeSingle(),
       ]);
       if (!active) return;
       setRole((roleRow?.role as AppRole) ?? null);
@@ -53,14 +53,13 @@ export function useSession(): SessionState {
   }, []);
 
   const metaName = (session?.user.user_metadata?.["name"] as string | undefined) ?? "";
-  const metaUsername = (session?.user.user_metadata?.["username"] as string | undefined) ?? "";
 
   return {
     loading,
     session,
     userId: session?.user.id ?? null,
     name: profile?.name || metaName || "Member",
-    username: profile?.username || metaUsername,
+    email: profile?.email || session?.user.email || "",
     role,
     isAdmin: role === "admin",
   };

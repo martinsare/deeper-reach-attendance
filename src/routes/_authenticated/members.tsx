@@ -298,7 +298,7 @@ function GuardianPicker({
   adults: Member[];
   guardianId: string | null;
   setGuardianId: (value: string | null) => void;
-  excludeId?: string;
+  excludeId?: string | undefined;
 }) {
   const [search, setSearch] = useState("");
   const pool = adults.filter((m) => m.id !== excludeId);

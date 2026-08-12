@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
-import { ChevronDown, Search, UserPlus, Users2 } from "lucide-react";
+import { ChevronDown, Pencil, Search, UserPlus, Users2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -12,6 +12,7 @@ import {
   buildHouseholds,
   initials,
   membersQuery,
+  type Member,
   type MemberCategory,
 } from "@/lib/data";
 import type { Database } from "@/integrations/supabase/types";
@@ -26,6 +27,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+
+type Gender = Database["public"]["Enums"]["member_gender"];
 
 export const Route = createFileRoute("/_authenticated/members")({
   head: () => ({
@@ -48,6 +51,7 @@ function MembersPage() {
   const [search, setSearch] = useState("");
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [workersOnly, setWorkersOnly] = useState(false);
+  const [editing, setEditing] = useState<Member | null>(null);
 
   const households = useMemo(() => buildHouseholds(members), [members]);
   const query = search.trim().toLowerCase();
@@ -94,9 +98,7 @@ function MembersPage() {
             return (
               <li key={household.id} className="surface overflow-hidden">
                 <div className="flex items-start gap-3 p-4">
-                  <div className="bg-primary/10 text-primary font-display grid h-11 w-11 shrink-0 place-items-center rounded-full text-sm font-semibold">
-                    {initials(head.name)}
-                  </div>
+                  <Avatar name={head.name} />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="truncate font-semibold">{head.name}</span>
@@ -123,20 +125,27 @@ function MembersPage() {
                       </button>
                     )}
                   </div>
+                  {isAdmin && <EditButton onClick={() => setEditing(head)} name={head.name} />}
                 </div>
                 {expanded && household.dependents.length > 0 && (
                   <ul className="divide-border bg-secondary/40 divide-y">
                     {household.dependents.map((dependent) => (
-                      <li key={dependent.id} className="px-4 py-2.5 pl-[4.25rem]">
-                        <div className="flex items-center gap-2 text-sm font-medium">
-                          {dependent.name}
-                          {dependent.gender && <GenderBadge gender={dependent.gender} />}
-                          {dependent.is_worker && <WorkerBadge />}
+                      <li key={dependent.id} className="flex items-center gap-3 px-4 py-2.5">
+                        <Avatar name={dependent.name} size="sm" />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 text-sm font-medium">
+                            <span className="truncate">{dependent.name}</span>
+                            {dependent.gender && <GenderBadge gender={dependent.gender} />}
+                            {dependent.is_worker && <WorkerBadge />}
+                          </div>
+                          <div className="text-muted-foreground text-xs">
+                            {CATEGORY_LABELS[dependent.category]}
+                            {dependent.contact ? ` · ${dependent.contact}` : ""}
+                          </div>
                         </div>
-                        <div className="text-muted-foreground text-xs">
-                          {CATEGORY_LABELS[dependent.category]}
-                          {dependent.contact ? ` · ${dependent.contact}` : ""}
-                        </div>
+                        {isAdmin && (
+                          <EditButton onClick={() => setEditing(dependent)} name={dependent.name} />
+                        )}
                       </li>
                     ))}
                   </ul>
@@ -151,7 +160,33 @@ function MembersPage() {
           )}
         </ul>
       )}
+
+      <EditMemberDialog member={editing} onClose={() => setEditing(null)} />
     </>
+  );
+}
+
+function Avatar({ name, size = "md" }: { name: string; size?: "sm" | "md" }) {
+  const dim = size === "sm" ? "h-9 w-9 text-xs" : "h-11 w-11 text-sm";
+  return (
+    <div
+      className={`bg-primary/10 text-primary font-display grid shrink-0 place-items-center rounded-full font-semibold ${dim}`}
+    >
+      {initials(name)}
+    </div>
+  );
+}
+
+function EditButton({ onClick, name }: { onClick: () => void; name: string }) {
+  return (
+    <button
+      type="button"
+      aria-label={`Edit ${name}`}
+      onClick={onClick}
+      className="text-muted-foreground hover:text-primary hover:bg-secondary grid h-9 w-9 shrink-0 place-items-center rounded-full transition-colors"
+    >
+      <Pencil className="h-4 w-4" />
+    </button>
   );
 }
 
@@ -171,6 +206,148 @@ function GenderBadge({ gender }: { gender: "male" | "female" }) {
   );
 }
 
+function CategoryPicker({
+  category,
+  setCategory,
+}: {
+  category: MemberCategory;
+  setCategory: (value: MemberCategory) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <Label>Category</Label>
+      <div className="grid grid-cols-2 gap-2">
+        {CATEGORY_ORDER.map((option) => (
+          <button
+            key={option}
+            type="button"
+            onClick={() => setCategory(option)}
+            className={`rounded-xl border px-3 py-3 text-sm transition-colors ${
+              category === option
+                ? "border-primary bg-primary/8 text-primary font-semibold"
+                : "border-border text-muted-foreground"
+            }`}
+          >
+            {CATEGORY_LABELS[option]}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function GenderPicker({
+  gender,
+  setGender,
+}: {
+  gender: Gender | null;
+  setGender: (value: Gender) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      <Label>Gender</Label>
+      <div className="grid grid-cols-2 gap-2">
+        {(["male", "female"] as const).map((option) => (
+          <button
+            key={option}
+            type="button"
+            onClick={() => setGender(option)}
+            className={`rounded-xl border px-3 py-3 text-sm transition-colors ${
+              gender === option
+                ? "border-primary bg-primary/8 text-primary font-semibold"
+                : "border-border text-muted-foreground"
+            }`}
+          >
+            {option === "male" ? "Male" : "Female"}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function WorkerToggle({ value, onToggle }: { value: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className={`flex w-full items-center justify-between rounded-xl border px-4 py-3.5 text-sm transition-colors ${
+        value
+          ? "border-primary bg-primary/8 text-primary font-semibold"
+          : "border-border text-muted-foreground"
+      }`}
+    >
+      Worker
+      <span
+        className={`grid h-6 w-11 items-center rounded-full px-0.5 transition-colors ${value ? "bg-primary" : "bg-border"}`}
+      >
+        <span
+          className={`bg-card h-5 w-5 rounded-full transition-transform ${value ? "translate-x-5" : ""}`}
+        />
+      </span>
+    </button>
+  );
+}
+
+function GuardianPicker({
+  adults,
+  guardianId,
+  setGuardianId,
+  excludeId,
+}: {
+  adults: Member[];
+  guardianId: string | null;
+  setGuardianId: (value: string | null) => void;
+  excludeId?: string;
+}) {
+  const [search, setSearch] = useState("");
+  const pool = adults.filter((m) => m.id !== excludeId);
+  const matches = search.trim()
+    ? pool.filter((m) => m.name.toLowerCase().includes(search.trim().toLowerCase()))
+    : pool.slice(0, 6);
+  const guardian = pool.find((m) => m.id === guardianId);
+
+  return (
+    <div className="bg-secondary/50 space-y-2 rounded-xl p-3">
+      <Label htmlFor="guardian">Guardian (optional)</Label>
+      {guardian ? (
+        <div className="flex items-center justify-between gap-2 text-sm">
+          <span className="font-medium">{guardian.name}</span>
+          <Button type="button" variant="ghost" size="sm" onClick={() => setGuardianId(null)}>
+            Change
+          </Button>
+        </div>
+      ) : (
+        <>
+          <Input
+            id="guardian"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search adults"
+            className="h-11"
+          />
+          <ul className="max-h-40 overflow-y-auto">
+            {matches.map((adult) => (
+              <li key={adult.id}>
+                <button
+                  type="button"
+                  onClick={() => setGuardianId(adult.id)}
+                  className="hover:bg-background w-full rounded-lg px-2 py-2 text-left text-sm"
+                >
+                  {adult.name}
+                </button>
+              </li>
+            ))}
+            {matches.length === 0 && (
+              <li className="text-muted-foreground px-2 py-2 text-xs">No matches.</li>
+            )}
+          </ul>
+        </>
+      )}
+    </div>
+  );
+}
+
 function AddMemberDialog() {
   const queryClient = useQueryClient();
   const { data: members } = useSuspenseQuery(membersQuery);
@@ -178,16 +355,11 @@ function AddMemberDialog() {
   const [name, setName] = useState("");
   const [contact, setContact] = useState("");
   const [category, setCategory] = useState<MemberCategory>("adult");
-  const [gender, setGender] = useState<Database["public"]["Enums"]["member_gender"] | null>(null);
+  const [gender, setGender] = useState<Gender | null>(null);
   const [guardianId, setGuardianId] = useState<string | null>(null);
-  const [guardianSearch, setGuardianSearch] = useState("");
   const [isWorker, setIsWorker] = useState(false);
 
   const adults = members.filter((m) => m.category === "adult");
-  const guardianMatches = guardianSearch.trim()
-    ? adults.filter((m) => m.name.toLowerCase().includes(guardianSearch.trim().toLowerCase()))
-    : adults.slice(0, 6);
-  const guardian = adults.find((m) => m.id === guardianId);
 
   const create = useMutation({
     mutationFn: async () => {
@@ -210,7 +382,6 @@ function AddMemberDialog() {
       setCategory("adult");
       setGender(null);
       setGuardianId(null);
-      setGuardianSearch("");
       setIsWorker(false);
     },
     onError: (error: Error) => toast.error(error.message),
@@ -253,114 +424,149 @@ function AddMemberDialog() {
               className="h-12"
             />
           </div>
-          <div className="space-y-2">
-            <Label>Category</Label>
-            <div className="grid grid-cols-2 gap-2">
-              {CATEGORY_ORDER.map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  onClick={() => setCategory(option)}
-                  className={`rounded-xl border px-3 py-3 text-sm transition-colors ${
-                    category === option
-                      ? "border-primary bg-primary/8 text-primary font-semibold"
-                      : "border-border text-muted-foreground"
-                  }`}
-                >
-                  {CATEGORY_LABELS[option]}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label>Gender</Label>
-            <div className="grid grid-cols-2 gap-2">
-              {(["male", "female"] as const).map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  onClick={() => setGender(option)}
-                  className={`rounded-xl border px-3 py-3 text-sm transition-colors ${
-                    gender === option
-                      ? "border-primary bg-primary/8 text-primary font-semibold"
-                      : "border-border text-muted-foreground"
-                  }`}
-                >
-                  {option === "male" ? "Male" : "Female"}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setIsWorker((v) => !v)}
-            className={`flex w-full items-center justify-between rounded-xl border px-4 py-3.5 text-sm transition-colors ${
-              isWorker
-                ? "border-primary bg-primary/8 text-primary font-semibold"
-                : "border-border text-muted-foreground"
-            }`}
-          >
-            Worker
-            <span
-              className={`grid h-6 w-11 items-center rounded-full px-0.5 transition-colors ${isWorker ? "bg-primary" : "bg-border"}`}
-            >
-              <span
-                className={`bg-card h-5 w-5 rounded-full transition-transform ${isWorker ? "translate-x-5" : ""}`}
-              />
-            </span>
-          </button>
-
+          <CategoryPicker category={category} setCategory={setCategory} />
+          <GenderPicker gender={gender} setGender={setGender} />
+          <WorkerToggle value={isWorker} onToggle={() => setIsWorker((v) => !v)} />
           {category !== "adult" && (
-            <div className="bg-secondary/50 space-y-2 rounded-xl p-3">
-              <Label htmlFor="guardian">Guardian (optional)</Label>
-              {guardian ? (
-                <div className="flex items-center justify-between gap-2 text-sm">
-                  <span className="font-medium">{guardian.name}</span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setGuardianId(null)}
-                  >
-                    Change
-                  </Button>
-                </div>
-              ) : (
-                <>
-                  <Input
-                    id="guardian"
-                    value={guardianSearch}
-                    onChange={(e) => setGuardianSearch(e.target.value)}
-                    placeholder="Search adults"
-                    className="h-11"
-                  />
-                  <ul className="max-h-40 overflow-y-auto">
-                    {guardianMatches.map((adult) => (
-                      <li key={adult.id}>
-                        <button
-                          type="button"
-                          onClick={() => setGuardianId(adult.id)}
-                          className="hover:bg-background w-full rounded-lg px-2 py-2 text-left text-sm"
-                        >
-                          {adult.name}
-                        </button>
-                      </li>
-                    ))}
-                    {guardianMatches.length === 0 && (
-                      <li className="text-muted-foreground px-2 py-2 text-xs">
-                        No matches.
-                      </li>
-                    )}
-                  </ul>
-                </>
-              )}
-            </div>
+            <GuardianPicker
+              adults={adults}
+              guardianId={guardianId}
+              setGuardianId={setGuardianId}
+            />
           )}
-
           <Button type="submit" size="lg" className="h-12 w-full" disabled={create.isPending}>
             Add member
           </Button>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function EditMemberDialog({
+  member,
+  onClose,
+}: {
+  member: Member | null;
+  onClose: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const { data: members } = useSuspenseQuery(membersQuery);
+  const [name, setName] = useState("");
+  const [contact, setContact] = useState("");
+  const [category, setCategory] = useState<MemberCategory>("adult");
+  const [gender, setGender] = useState<Gender | null>(null);
+  const [guardianId, setGuardianId] = useState<string | null>(null);
+  const [isWorker, setIsWorker] = useState(false);
+
+  useEffect(() => {
+    if (!member) return;
+    setName(member.name);
+    setContact(member.contact ?? "");
+    setCategory(member.category);
+    setGender(member.gender);
+    setGuardianId(member.guardian_id);
+    setIsWorker(member.is_worker);
+  }, [member]);
+
+  const adults = members.filter((m) => m.category === "adult");
+
+  const save = useMutation({
+    mutationFn: async () => {
+      if (!member) return;
+      const { error } = await supabase
+        .from("members")
+        .update({
+          name: name.trim(),
+          contact: contact.trim() || null,
+          category,
+          gender,
+          is_worker: isWorker,
+          guardian_id: category === "adult" ? null : guardianId,
+        })
+        .eq("id", member.id);
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["members"] });
+      toast.success("Member updated");
+      onClose();
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const remove = useMutation({
+    mutationFn: async () => {
+      if (!member) return;
+      const { error } = await supabase.from("members").delete().eq("id", member.id);
+      if (error) throw new Error(error.message);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["members"] });
+      toast.success("Member removed");
+      onClose();
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  return (
+    <Dialog open={!!member} onOpenChange={(next) => !next && onClose()}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Edit member</DialogTitle>
+        </DialogHeader>
+        <form
+          className="space-y-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            save.mutate();
+          }}
+        >
+          <div className="space-y-2">
+            <Label htmlFor="edit-name">Full name</Label>
+            <Input
+              id="edit-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              className="h-12"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-contact">Contact (optional)</Label>
+            <Input
+              id="edit-contact"
+              value={contact}
+              onChange={(e) => setContact(e.target.value)}
+              className="h-12"
+            />
+          </div>
+          <CategoryPicker category={category} setCategory={setCategory} />
+          <GenderPicker gender={gender} setGender={setGender} />
+          <WorkerToggle value={isWorker} onToggle={() => setIsWorker((v) => !v)} />
+          {category !== "adult" && (
+            <GuardianPicker
+              adults={adults}
+              guardianId={guardianId}
+              setGuardianId={setGuardianId}
+              excludeId={member?.id}
+            />
+          )}
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="destructive"
+              size="lg"
+              className="h-12"
+              disabled={remove.isPending}
+              onClick={() => remove.mutate()}
+            >
+              Remove
+            </Button>
+            <Button type="submit" size="lg" className="h-12 flex-1" disabled={save.isPending}>
+              Save changes
+            </Button>
+          </div>
         </form>
       </DialogContent>
     </Dialog>

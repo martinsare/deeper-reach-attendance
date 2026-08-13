@@ -49,17 +49,60 @@ function MembersPage() {
   const { data: members } = useSuspenseQuery(membersQuery);
   const { isAdmin } = useSession();
   const [search, setSearch] = useState("");
-  const [open, setOpen] = useState<Record<string, boolean>>({});
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
   const [workersOnly, setWorkersOnly] = useState(false);
   const [editing, setEditing] = useState<Member | null>(null);
 
-  const households = useMemo(() => buildHouseholds(members), [members]);
   const query = search.trim().toLowerCase();
-  const visible = households.filter(
-    (h) =>
-      (!query || h.members.some((m) => m.name.toLowerCase().includes(query))) &&
-      (!workersOnly || h.members.some((m) => m.is_worker)),
+  const filtered = members.filter(
+    (m) => (!query || m.name.toLowerCase().includes(query)) && (!workersOnly || m.is_worker),
   );
+
+  // Group members by category and gender
+  const grouped = useMemo(() => {
+    const groups: Record<MemberCategory, Record<"male" | "female", Member[]>> = {
+      adult: { male: [], female: [] },
+      young_adult: { male: [], female: [] },
+      youth: { male: [], female: [] },
+      child: { male: [], female: [] },
+    };
+
+    for (const member of filtered) {
+      const gender = (member.gender || "male") as "male" | "female";
+      groups[member.category][gender].push(member);
+    }
+
+    // Sort members by name within each group
+    for (const category of CATEGORY_ORDER) {
+      groups[category].male.sort((a, b) => a.name.localeCompare(b.name));
+      groups[category].female.sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    return groups;
+  }, [filtered]);
+
+  // Initialize all sections as expanded
+  const sectionKeys = useMemo(() => {
+    const keys: Record<string, boolean> = {};
+    for (const category of CATEGORY_ORDER) {
+      keys[`${category}-male`] = true;
+      keys[`${category}-female`] = true;
+    }
+    return keys;
+  }, []);
+
+  const toggleSection = (section: string) => {
+    setExpandedSections((prev) => ({
+      ...prev,
+      [section]: !prev[section],
+    }));
+  };
+
+  const getSectionExpandedState = (section: string): boolean => {
+    return expandedSections[section] !== undefined
+      ? expandedSections[section]
+      : (sectionKeys[section] ?? true);
+  };
 
   return (
     <>
@@ -91,76 +134,110 @@ function MembersPage() {
           <p className="font-display mt-3 text-lg">No members yet</p>
         </div>
       ) : (
-        <ul className="grid gap-3 sm:grid-cols-2">
-          {visible.map((household) => {
-            const head = household.head!;
-            const expanded = open[household.id] ?? false;
+        <div className="space-y-4">
+          {CATEGORY_ORDER.map((category) => {
+            const hasMale = grouped[category].male.length > 0;
+            const hasFemale = grouped[category].female.length > 0;
+
+            if (!hasMale && !hasFemale) return null;
+
             return (
-              <li key={household.id} className="surface overflow-hidden">
-                <div className="flex items-start gap-3 p-4">
-                  <Avatar name={head.name} />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="truncate font-semibold">{head.name}</span>
-                      {head.gender && <GenderBadge gender={head.gender} />}
-                      {head.is_worker && <WorkerBadge />}
-                    </div>
-                    <div className="text-muted-foreground mt-0.5 truncate text-xs">
-                      {CATEGORY_LABELS[head.category]}
-                      {head.contact ? ` · ${head.contact}` : ""}
-                    </div>
-                    {household.dependents.length > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => setOpen((prev) => ({ ...prev, [household.id]: !expanded }))}
-                        className="text-primary mt-2 inline-flex items-center gap-1 text-xs font-semibold"
-                      >
-                        {household.dependents.length} dependent
-                        {household.dependents.length > 1 ? "s" : ""}
-                        <ChevronDown
-                          className={`h-3.5 w-3.5 transition-transform ${expanded ? "rotate-180" : ""}`}
-                        />
-                      </button>
-                    )}
-                  </div>
-                  {isAdmin && <EditButton onClick={() => setEditing(head)} name={head.name} />}
+              <div key={category} className="space-y-2">
+                <h2 className="text-lg font-semibold">{CATEGORY_LABELS[category]}</h2>
+                <div className="space-y-2">
+                  {hasMale && (
+                    <MemberSection
+                      title="Male"
+                      members={grouped[category].male}
+                      sectionKey={`${category}-male`}
+                      expanded={getSectionExpandedState(`${category}-male`)}
+                      onToggle={toggleSection}
+                      isAdmin={isAdmin}
+                      onEdit={setEditing}
+                    />
+                  )}
+                  {hasFemale && (
+                    <MemberSection
+                      title="Female"
+                      members={grouped[category].female}
+                      sectionKey={`${category}-female`}
+                      expanded={getSectionExpandedState(`${category}-female`)}
+                      onToggle={toggleSection}
+                      isAdmin={isAdmin}
+                      onEdit={setEditing}
+                    />
+                  )}
                 </div>
-                {expanded && household.dependents.length > 0 && (
-                  <ul className="divide-border bg-secondary/40 divide-y">
-                    {household.dependents.map((dependent) => (
-                      <li key={dependent.id} className="flex items-center gap-3 px-4 py-2.5">
-                        <Avatar name={dependent.name} size="sm" />
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 text-sm font-medium">
-                            <span className="truncate">{dependent.name}</span>
-                            {dependent.gender && <GenderBadge gender={dependent.gender} />}
-                            {dependent.is_worker && <WorkerBadge />}
-                          </div>
-                          <div className="text-muted-foreground text-xs">
-                            {CATEGORY_LABELS[dependent.category]}
-                            {dependent.contact ? ` · ${dependent.contact}` : ""}
-                          </div>
-                        </div>
-                        {isAdmin && (
-                          <EditButton onClick={() => setEditing(dependent)} name={dependent.name} />
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </li>
+              </div>
             );
           })}
-          {visible.length === 0 && (
-            <li className="surface text-muted-foreground p-8 text-center text-sm sm:col-span-2">
-              No matches.
-            </li>
+
+          {filtered.length === 0 && (
+            <div className="surface text-muted-foreground p-8 text-center text-sm">No matches.</div>
           )}
-        </ul>
+        </div>
       )}
 
       <EditMemberDialog member={editing} onClose={() => setEditing(null)} />
     </>
+  );
+}
+
+interface MemberSectionProps {
+  title: string;
+  members: Member[];
+  sectionKey: string;
+  expanded: boolean;
+  onToggle: (section: string) => void;
+  isAdmin: boolean;
+  onEdit: (member: Member) => void;
+}
+
+function MemberSection({
+  title,
+  members,
+  sectionKey,
+  expanded,
+  onToggle,
+  isAdmin,
+  onEdit,
+}: MemberSectionProps) {
+  return (
+    <div className="surface overflow-hidden">
+      <button
+        type="button"
+        onClick={() => onToggle(sectionKey)}
+        className="flex w-full items-center justify-between gap-3 p-4 hover:bg-secondary/50 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <span className="font-semibold">{title}</span>
+          <span className="text-muted-foreground text-sm">({members.length})</span>
+        </div>
+        <ChevronDown className={`h-5 w-5 transition-transform ${expanded ? "rotate-180" : ""}`} />
+      </button>
+
+      {expanded && members.length > 0 && (
+        <ul className="divide-border bg-secondary/40 divide-y">
+          {members.map((member) => (
+            <li key={member.id} className="flex items-center gap-3 px-4 py-3">
+              <Avatar name={member.name} size="sm" />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <span className="truncate">{member.name}</span>
+                  {member.gender && <GenderBadge gender={member.gender} />}
+                  {member.is_worker && <WorkerBadge />}
+                </div>
+                <div className="text-muted-foreground text-xs">
+                  {CATEGORY_LABELS[member.category]}
+                  {member.contact ? ` · ${member.contact}` : ""}
+                </div>
+              </div>
+              {isAdmin && <EditButton onClick={() => onEdit(member)} name={member.name} />}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
 
@@ -213,7 +290,9 @@ function CategoryPicker({
 }) {
   return (
     <div className="space-y-2">
-      <Label>Category</Label>
+      <Label>
+        Category <span className="text-destructive">*</span>
+      </Label>
       <div className="grid grid-cols-2 gap-2">
         {CATEGORY_ORDER.map((option) => (
           <button
@@ -243,7 +322,9 @@ function GenderPicker({
 }) {
   return (
     <div className="space-y-2">
-      <Label>Gender</Label>
+      <Label>
+        Gender <span className="text-destructive">*</span>
+      </Label>
       <div className="grid grid-cols-2 gap-2">
         {(["male", "female"] as const).map((option) => (
           <button
@@ -400,6 +481,10 @@ function AddMemberDialog() {
           className="space-y-4"
           onSubmit={(event) => {
             event.preventDefault();
+            if (!gender) {
+              toast.error("Please select a gender");
+              return;
+            }
             create.mutate();
           }}
         >
@@ -428,7 +513,12 @@ function AddMemberDialog() {
           {category !== "adult" && (
             <GuardianPicker adults={adults} guardianId={guardianId} setGuardianId={setGuardianId} />
           )}
-          <Button type="submit" size="lg" className="h-12 w-full" disabled={create.isPending}>
+          <Button
+            type="submit"
+            size="lg"
+            className="h-12 w-full"
+            disabled={create.isPending || !gender}
+          >
             Add member
           </Button>
         </form>
@@ -507,6 +597,10 @@ function EditMemberDialog({ member, onClose }: { member: Member | null; onClose:
           className="space-y-4"
           onSubmit={(event) => {
             event.preventDefault();
+            if (!gender) {
+              toast.error("Please select a gender");
+              return;
+            }
             save.mutate();
           }}
         >
@@ -551,7 +645,12 @@ function EditMemberDialog({ member, onClose }: { member: Member | null; onClose:
             >
               Remove
             </Button>
-            <Button type="submit" size="lg" className="h-12 flex-1" disabled={save.isPending}>
+            <Button
+              type="submit"
+              size="lg"
+              className="h-12 flex-1"
+              disabled={save.isPending || !gender}
+            >
               Save changes
             </Button>
           </div>

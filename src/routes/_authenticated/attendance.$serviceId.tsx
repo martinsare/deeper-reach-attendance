@@ -8,11 +8,13 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import {
   CATEGORY_LABELS,
+  CATEGORY_ORDER,
   buildHouseholds,
   fetchAttendance,
   fetchService,
   membersQuery,
   type Member,
+  type MemberCategory,
 } from "@/lib/data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -41,7 +43,6 @@ function AttendancePage() {
   const queryClient = useQueryClient();
   const [statuses, setStatuses] = useState<Record<string, Status>>({});
   const [search, setSearch] = useState("");
-  const [open, setOpen] = useState<Record<string, boolean>>({});
   const [submitted, setSubmitted] = useState(false);
   const [editing, setEditing] = useState(false);
 
@@ -64,13 +65,63 @@ function AttendancePage() {
   const statusOf = (memberId: string): Status =>
     statuses[memberId] ?? baseline[memberId] ?? "absent";
 
-  const households = useMemo(() => buildHouseholds(members.data ?? []), [members.data]);
-  const query = search.trim().toLowerCase();
-  const visible = query
-    ? households.filter((h) => h.members.some((m) => m.name.toLowerCase().includes(query)))
-    : households;
-
   const allMembers = members.data ?? [];
+
+  const households = useMemo(() => buildHouseholds(allMembers), [allMembers]);
+  const query = search.trim().toLowerCase();
+
+  // Group members by category and gender
+  const grouped = useMemo(() => {
+    const groups: Record<MemberCategory, Record<"male" | "female", Member[]>> = {
+      adult: { male: [], female: [] },
+      young_adult: { male: [], female: [] },
+      youth: { male: [], female: [] },
+      child: { male: [], female: [] },
+    };
+
+    const filteredMembers = query
+      ? allMembers.filter((m) => m.name.toLowerCase().includes(query))
+      : allMembers;
+
+    for (const member of filteredMembers) {
+      const gender = (member.gender || "male") as "male" | "female";
+      groups[member.category][gender].push(member);
+    }
+
+    // Sort members by name within each group
+    for (const category of CATEGORY_ORDER) {
+      groups[category].male.sort((a, b) => a.name.localeCompare(b.name));
+      groups[category].female.sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    return groups;
+  }, [allMembers, query]);
+
+  // Initialize all sections as expanded
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
+
+  const toggleSection = (section: string) => {
+    setExpandedSections((prev) => ({
+      ...prev,
+      [section]: !prev[section],
+    }));
+  };
+
+  const sectionKeys = useMemo(() => {
+    const keys: Record<string, boolean> = {};
+    for (const category of CATEGORY_ORDER) {
+      keys[`${category}-male`] = true;
+      keys[`${category}-female`] = true;
+    }
+    return keys;
+  }, []);
+
+  const getSectionExpandedState = (section: string): boolean => {
+    return expandedSections[section] !== undefined
+      ? expandedSections[section]
+      : (sectionKeys[section] ?? true);
+  };
+
   const presentCount = allMembers.filter((m) => statusOf(m.id) === "present").length;
   const total = allMembers.length;
   const pct = total ? Math.round((presentCount / total) * 100) : 0;
@@ -184,85 +235,45 @@ function AttendancePage() {
       </div>
 
       <ul className="space-y-3 pb-32">
-        {visible.map((household) => {
-          const ids = household.members.map((m) => m.id);
-          const presentInHouse = household.members.filter(
-            (m) => statusOf(m.id) === "present",
-          ).length;
-          const single = household.dependents.length === 0;
-          const expanded = single ? false : (open[household.id] ?? false);
-          const head = household.head!;
-          return (
-            <li key={household.id} className="surface overflow-hidden">
-              <div className="flex items-center gap-3 p-3 sm:p-4">
-                <button
-                  type="button"
-                  onClick={() => setOpen((prev) => ({ ...prev, [household.id]: !expanded }))}
-                  className="min-w-0 flex-1 text-left"
-                  disabled={single}
-                >
-                  <div className="flex items-center gap-2 font-semibold">
-                    <span className="truncate">{household.label}</span>
-                    {!single && (
-                      <ChevronDown
-                        className={`h-4 w-4 shrink-0 transition-transform ${expanded ? "rotate-180" : ""}`}
-                      />
-                    )}
-                  </div>
-                  <div className="text-muted-foreground mt-0.5 text-xs">
-                    {single
-                      ? CATEGORY_LABELS[head.category]
-                      : `${presentInHouse}/${household.members.length} present`}
-                  </div>
-                </button>
-                <div className="flex shrink-0 gap-2">
-                  <IconToggle
-                    kind="present"
-                    active={presentInHouse === household.members.length}
-                    label={`Mark ${household.label} present`}
-                    onClick={() => setMany(ids, "present")}
-                  />
-                  <IconToggle
-                    kind="absent"
-                    active={presentInHouse === 0}
-                    label={`Mark ${household.label} absent`}
-                    onClick={() => setMany(ids, "absent")}
-                  />
-                </div>
-              </div>
+        {CATEGORY_ORDER.map((category) => {
+          const hasMale = grouped[category].male.length > 0;
+          const hasFemale = grouped[category].female.length > 0;
 
-              {expanded && !single && (
-                <ul className="border-border divide-border divide-y border-t">
-                  {household.members.map((member) => (
-                    <li key={member.id} className="flex items-center gap-3 px-3 py-2.5 sm:px-4">
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-medium">{member.name}</div>
-                        <div className="text-muted-foreground text-xs">
-                          {CATEGORY_LABELS[member.category]}
-                        </div>
-                      </div>
-                      <div className="flex shrink-0 gap-2">
-                        <IconToggle
-                          kind="present"
-                          active={statusOf(member.id) === "present"}
-                          label={`Mark ${member.name} present`}
-                          onClick={() => setMany([member.id], "present")}
-                        />
-                        <IconToggle
-                          kind="absent"
-                          active={statusOf(member.id) === "absent"}
-                          label={`Mark ${member.name} absent`}
-                          onClick={() => setMany([member.id], "absent")}
-                        />
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
+          if (!hasMale && !hasFemale) return null;
+
+          return (
+            <li key={category} className="space-y-2">
+              <h2 className="text-lg font-semibold">{CATEGORY_LABELS[category]}</h2>
+              <div className="space-y-2">
+                {hasMale && (
+                  <AttendanceSection
+                    title="Male"
+                    members={grouped[category].male}
+                    sectionKey={`${category}-male`}
+                    expanded={getSectionExpandedState(`${category}-male`)}
+                    onToggle={toggleSection}
+                    statusOf={statusOf}
+                    setMany={setMany}
+                  />
+                )}
+                {hasFemale && (
+                  <AttendanceSection
+                    title="Female"
+                    members={grouped[category].female}
+                    sectionKey={`${category}-female`}
+                    expanded={getSectionExpandedState(`${category}-female`)}
+                    onToggle={toggleSection}
+                    statusOf={statusOf}
+                    setMany={setMany}
+                  />
+                )}
+              </div>
             </li>
           );
         })}
-        {visible.length === 0 && (
+        {Object.values(grouped)
+          .flat()
+          .every((gender) => gender.length === 0) && (
           <li className="surface text-muted-foreground p-8 text-center text-sm">No matches.</li>
         )}
       </ul>
@@ -312,6 +323,93 @@ function IconToggle({
     <button type="button" aria-label={label} onClick={onClick} className={`${base} ${styles}`}>
       {kind === "present" ? <Check className="h-5 w-5" /> : <X className="h-5 w-5" />}
     </button>
+  );
+}
+
+interface AttendanceSectionProps {
+  title: string;
+  members: Member[];
+  sectionKey: string;
+  expanded: boolean;
+  onToggle: (section: string) => void;
+  statusOf: (memberId: string) => Status;
+  setMany: (ids: string[], status: Status) => void;
+}
+
+function AttendanceSection({
+  title,
+  members,
+  sectionKey,
+  expanded,
+  onToggle,
+  statusOf,
+  setMany,
+}: AttendanceSectionProps) {
+  const presentCount = members.filter((m) => statusOf(m.id) === "present").length;
+  const ids = members.map((m) => m.id);
+
+  return (
+    <div className="surface overflow-hidden">
+      <button
+        type="button"
+        onClick={() => onToggle(sectionKey)}
+        className="flex w-full items-center justify-between gap-3 p-4 hover:bg-secondary/50 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <span className="font-semibold">{title}</span>
+          <span className="text-muted-foreground text-sm">
+            ({presentCount}/{members.length} present)
+          </span>
+        </div>
+        <ChevronDown className={`h-5 w-5 transition-transform ${expanded ? "rotate-180" : ""}`} />
+      </button>
+
+      {expanded && members.length > 0 && (
+        <>
+          <div className="border-border bg-secondary/40 flex shrink-0 gap-2 border-t px-4 py-3">
+            <IconToggle
+              kind="present"
+              active={presentCount === members.length}
+              label={`Mark all ${title.toLowerCase()} present`}
+              onClick={() => setMany(ids, "present")}
+            />
+            <IconToggle
+              kind="absent"
+              active={presentCount === 0}
+              label={`Mark all ${title.toLowerCase()} absent`}
+              onClick={() => setMany(ids, "absent")}
+            />
+          </div>
+          <ul className="divide-border bg-secondary/40 divide-y">
+            {members.map((member) => (
+              <li key={member.id} className="flex items-center gap-3 px-4 py-3">
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium">{member.name}</div>
+                  <div className="text-muted-foreground text-xs">
+                    {CATEGORY_LABELS[member.category]}
+                    {member.contact ? ` · ${member.contact}` : ""}
+                  </div>
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  <IconToggle
+                    kind="present"
+                    active={statusOf(member.id) === "present"}
+                    label={`Mark ${member.name} present`}
+                    onClick={() => setMany([member.id], "present")}
+                  />
+                  <IconToggle
+                    kind="absent"
+                    active={statusOf(member.id) === "absent"}
+                    label={`Mark ${member.name} absent`}
+                    onClick={() => setMany([member.id], "absent")}
+                  />
+                </div>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </div>
   );
 }
 

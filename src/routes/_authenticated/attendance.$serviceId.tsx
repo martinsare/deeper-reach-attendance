@@ -13,6 +13,7 @@ import {
   fetchAttendance,
   fetchService,
   membersQuery,
+  normalizeMemberCategory,
   type Member,
   type MemberCategory,
 } from "@/lib/data";
@@ -85,7 +86,7 @@ function AttendancePage() {
 
     for (const member of filteredMembers) {
       const gender = (member.gender || "male") as "male" | "female";
-      groups[member.category][gender].push(member);
+      groups[normalizeMemberCategory(member.category)][gender].push(member);
     }
 
     // Sort members by name within each group

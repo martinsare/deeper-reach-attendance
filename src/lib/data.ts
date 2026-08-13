@@ -10,12 +10,16 @@ export type AppRole = Database["public"]["Enums"]["app_role"];
 
 export const CATEGORY_LABELS: Record<MemberCategory, string> = {
   adult: "Adult",
-  young_adult: "Young Adult",
+  young_adult: "Adult",
   youth: "Youth",
-  child: "Child",
+  child: "Children",
 };
 
-export const CATEGORY_ORDER: MemberCategory[] = ["adult", "young_adult", "youth", "child"];
+export const CATEGORY_ORDER: MemberCategory[] = ["adult", "youth", "child"];
+
+export function normalizeMemberCategory(category: MemberCategory): MemberCategory {
+  return category === "young_adult" ? "adult" : category;
+}
 
 export type Household = {
   id: string;
@@ -50,7 +54,8 @@ export function buildHouseholds(members: Member[]): Household[] {
         .slice()
         .sort(
           (a, b) =>
-            CATEGORY_ORDER.indexOf(a.category) - CATEGORY_ORDER.indexOf(b.category) ||
+            CATEGORY_ORDER.indexOf(normalizeMemberCategory(a.category)) -
+              CATEGORY_ORDER.indexOf(normalizeMemberCategory(b.category)) ||
             a.name.localeCompare(b.name),
         );
       return {

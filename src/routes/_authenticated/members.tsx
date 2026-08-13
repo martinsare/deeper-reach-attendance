@@ -12,6 +12,7 @@ import {
   buildHouseholds,
   initials,
   membersQuery,
+  normalizeMemberCategory,
   type Member,
   type MemberCategory,
 } from "@/lib/data";
@@ -69,7 +70,7 @@ function MembersPage() {
 
     for (const member of filtered) {
       const gender = (member.gender || "male") as "male" | "female";
-      groups[member.category][gender].push(member);
+      groups[normalizeMemberCategory(member.category)][gender].push(member);
     }
 
     // Sort members by name within each group
@@ -438,7 +439,7 @@ function AddMemberDialog() {
   const [guardianId, setGuardianId] = useState<string | null>(null);
   const [isWorker, setIsWorker] = useState(false);
 
-  const adults = members.filter((m) => m.category === "adult");
+  const adults = members.filter((m) => normalizeMemberCategory(m.category) === "adult");
 
   const create = useMutation({
     mutationFn: async () => {
@@ -541,13 +542,13 @@ function EditMemberDialog({ member, onClose }: { member: Member | null; onClose:
     if (!member) return;
     setName(member.name);
     setContact(member.contact ?? "");
-    setCategory(member.category);
+    setCategory(normalizeMemberCategory(member.category));
     setGender(member.gender);
     setGuardianId(member.guardian_id);
     setIsWorker(member.is_worker);
   }, [member]);
 
-  const adults = members.filter((m) => m.category === "adult");
+  const adults = members.filter((m) => normalizeMemberCategory(m.category) === "adult");
 
   const save = useMutation({
     mutationFn: async () => {
